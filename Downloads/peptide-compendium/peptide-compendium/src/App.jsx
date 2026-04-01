@@ -411,7 +411,7 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
           const isActive = activeCatId === cat.id && !showHome
           const isCondition = cat.isCondition
           return (
-            <button key={cat.id} onClick={() => setOpenCat(prev => prev === cat.id ? null : cat.id)}
+            <button key={cat.id} onClick={() => { setOpenCat(prev => prev === cat.id ? null : cat.id); onSearch('') }}
               style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 16px',
                 background: isOpen ? `${cat.color_hex}22` : 'transparent',
                 border:'none', borderBottom:`2px solid ${isActive || isOpen ? cat.color_hex : 'transparent'}`,
@@ -426,8 +426,68 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
         })}
       </div>
 
-      {/* Dropdown */}
-      {openCat && openCategory && (() => {
+      {/* Global search results panel */}
+      {search && (() => {
+        const allResults = []
+        categories.forEach(cat => {
+          const pool = cat.isCondition
+            ? (cat.subcategories || []).flatMap(s => s.peptides)
+            : (cat.peptides || [])
+          pool.forEach(p => {
+            if ([p.name, p.aka, p.class].join(' ').toLowerCase().includes(search.toLowerCase())) {
+              allResults.push({ p, cat })
+            }
+          })
+        })
+        // Deduplicate by peptide id
+        const seen = new Set()
+        const unique = allResults.filter(({ p }) => {
+          if (seen.has(p.id)) return false
+          seen.add(p.id)
+          return true
+        })
+        return (
+          <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#0c0c18',
+            borderBottom:'1px solid #1e1e2e', borderTop:'1px solid #2dd4bf33',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.7)', maxHeight:'60vh', overflowY:'auto', zIndex:200 }}>
+            {/* Header */}
+            <div style={{ padding:'8px 20px', borderBottom:'1px solid #1e1e2e',
+              fontSize:9, fontFamily:'monospace', color:'#2dd4bf', letterSpacing:'0.14em',
+              background:'#2dd4bf08' }}>
+              {unique.length} RESULT{unique.length !== 1 ? 'S' : ''} FOR "{search.toUpperCase()}"
+            </div>
+            {unique.length === 0 ? (
+              <div style={{ padding:'20px 24px', fontSize:12, fontFamily:'monospace', color:'#4a4a6a' }}>
+                No compounds found
+              </div>
+            ) : (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))' }}>
+                {unique.map(({ p, cat }) => (
+                  <button key={p.id} onClick={() => { handlePeptideClick(cat, p); onSearch('') }}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 20px',
+                      background:'transparent', border:'none',
+                      borderLeft:`2px solid ${cat.color_hex}66`,
+                      cursor:'pointer', textAlign:'left', transition:'background .1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background='#0f0f20'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, fontFamily:'monospace', color:'#d4cfc4',
+                        whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.name}</div>
+                      <div style={{ fontSize:10, fontFamily:'monospace', color: cat.color_hex,
+                        marginTop:2, opacity:0.8 }}>{cat.label}</div>
+                      <div style={{ fontSize:9, fontFamily:'monospace', color:'#4a4a6a',
+                        marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.class}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Category dropdown (only when search is empty) */}
+      {!search && openCat && openCategory && (() => {
         const cat = openCategory
 
         if (cat.isCondition) {
@@ -468,18 +528,16 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
         }
 
         // Standard category dropdown
-        const peptides = search
-          ? cat.peptides.filter(p => [p.name, p.aka, p.class].join(' ').toLowerCase().includes(search.toLowerCase()))
-          : cat.peptides
+        const peptides = cat.peptides || []
         const favFiltered = favFilter ? peptides.filter(p => !!favorites[p.id]) : peptides
 
         return (
-          <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#090912',
-            borderBottom:'1px solid #131320', borderTop:`1px solid ${cat.color_hex}33`,
+          <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#0c0c18',
+            borderBottom:'1px solid #1e1e2e', borderTop:`1px solid ${cat.color_hex}33`,
             boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
             display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))' }}>
             {favFiltered.length === 0
-              ? <div style={{ padding:'20px 24px', fontSize:12, fontFamily:'monospace', color:'#2d2d45' }}>No compounds found</div>
+              ? <div style={{ padding:'20px 24px', fontSize:12, fontFamily:'monospace', color:'#4a4a6a' }}>No compounds found</div>
               : favFiltered.map(p => <PeptideDropdownItem key={p.id} p={p} cat={cat}
                   selectedPeptide={selectedPeptide} favorites={favorites}
                   onClick={() => handlePeptideClick(cat, p)} />)

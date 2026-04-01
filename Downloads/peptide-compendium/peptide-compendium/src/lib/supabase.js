@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// ── Fetch all data ────────────────────────────────────────────
+// ── Fetch all category/peptide data ───────────────────────────
 
 export async function fetchAll() {
   const [catsRes, pepRes, benRes, fxRes, stackRes, timingRes, catPepRes, contextRes] = await Promise.all([
@@ -22,16 +22,15 @@ export async function fetchAll() {
   if (catsRes.error) throw catsRes.error
   if (pepRes.error)  throw pepRes.error
 
-  const benefits      = benRes.data    || []
-  const sideEffects   = fxRes.data     || []
-  const stackItems    = stackRes.data  || []
-  const timings       = timingRes.data || []
-  const catPeps       = catPepRes.data || []
-  const contexts      = contextRes.data || []
+  const benefits    = benRes.data    || []
+  const sideEffects = fxRes.data     || []
+  const stackItems  = stackRes.data  || []
+  const timings     = timingRes.data || []
+  const catPeps     = catPepRes.data || []
+  const contexts    = contextRes.data || []
 
   const CONDITION_CATS = ['diabetes', 'menopause']
 
-  // Build enriched peptide objects
   const peptideMap = {}
   pepRes.data.forEach(p => {
     peptideMap[p.id] = {
@@ -44,12 +43,9 @@ export async function fetchAll() {
     }
   })
 
-  // Build categories
   return catsRes.data.map(cat => {
     const isCondition = CONDITION_CATS.includes(cat.id)
-
     if (isCondition) {
-      // Build subcategory-grouped peptide list from junction table
       const junctionRows = catPeps.filter(cp => cp.category_id === cat.id)
       const subcategoryMap = {}
       junctionRows.forEach(row => {
@@ -57,29 +53,36 @@ export async function fetchAll() {
         const peptide = peptideMap[row.peptide_id]
         if (!peptide) return
         const context = contexts.find(c => c.peptide_id === row.peptide_id && c.category_id === cat.id)
-        subcategoryMap[row.subcategory].push({
-          ...peptide,
-          conditionContext: context || null,
-          subcategory: row.subcategory,
-        })
+        subcategoryMap[row.subcategory].push({ ...peptide, conditionContext: context || null, subcategory: row.subcategory })
       })
       return {
-        ...cat,
-        isCondition: true,
+        ...cat, isCondition: true,
         subcategories: Object.entries(subcategoryMap).map(([name, peptides]) => ({ name, peptides })),
         peptides: junctionRows.map(r => peptideMap[r.peptide_id]).filter(Boolean),
       }
     }
-
-    // Standard category
     return {
-      ...cat,
-      isCondition: false,
-      peptides: pepRes.data
-        .filter(p => p.category_id === cat.id)
-        .map(p => peptideMap[p.id]),
+      ...cat, isCondition: false,
+      peptides: pepRes.data.filter(p => p.category_id === cat.id).map(p => peptideMap[p.id]),
     }
   })
+}
+
+// ── Fetch all stacks ──────────────────────────────────────────
+
+export async function fetchStacks() {
+  const [stacksRes, spRes] = await Promise.all([
+    supabase.from('stacks').select('*').order('sort_order'),
+    supabase.from('stack_peptides').select('*').order('sort_order'),
+  ])
+  if (stacksRes.error) throw stacksRes.error
+
+  const spRows = spRes.data || []
+
+  return stacksRes.data.map(stack => ({
+    ...stack,
+    peptideRoles: spRows.filter(r => r.stack_id === stack.id),
+  }))
 }
 
 // ── Favorites ─────────────────────────────────────────────────
@@ -87,26 +90,20 @@ export async function fetchAll() {
 export async function loadFavorites(userKey) {
   if (!userKey) return []
   const { data, error } = await supabase
-    .from('user_favorites')
-    .select('peptide_id, category_id')
-    .eq('user_key', userKey)
+    .from('user_favorites').select('peptide_id, category_id').eq('user_key', userKey)
   if (error) { console.error('loadFavorites error:', error); return [] }
   return data || []
 }
 
 export async function addFavorite(userKey, peptideId, categoryId) {
-  const { error } = await supabase
-    .from('user_favorites')
+  const { error } = await supabase.from('user_favorites')
     .upsert({ user_key: userKey, peptide_id: peptideId, category_id: categoryId || null },
              { onConflict: 'user_key,peptide_id' })
   if (error) console.error('addFavorite error:', error)
 }
 
 export async function removeFavorite(userKey, peptideId) {
-  const { error } = await supabase
-    .from('user_favorites')
-    .delete()
-    .eq('user_key', userKey)
-    .eq('peptide_id', peptideId)
+  const { error } = await supabase.from('user_favorites')
+    .delete().eq('user_key', userKey).eq('peptide_id', peptideId)
   if (error) console.error('removeFavorite error:', error)
 }

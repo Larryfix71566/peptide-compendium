@@ -364,10 +364,10 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
   const openCategory = categories.find(c => c.id === openCat)
 
   return (
-    <div ref={navRef} style={{ flexShrink:0, background:'#090912', borderBottom:'1px solid #131320', position:'relative', zIndex:100 }}>
+    <div ref={navRef} style={{ flexShrink:0, background:'#0c0c18', borderBottom:'1px solid #1e1e2e', position:'relative', zIndex:100 }}>
 
       {/* Header bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 24px', borderBottom:'1px solid #131320' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:16, padding:'14px 24px', borderBottom:'1px solid #1e1e2e' }}>
         <button onClick={() => { onHome(); setOpenCat(null) }}
           style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
           <div style={{ width:32, height:32, borderRadius:8, background:'rgba(45,212,191,0.12)',
@@ -376,15 +376,15 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
             <div style={{ fontSize:14, color: showHome ? '#2dd4bf' : '#c8c3b8', letterSpacing:'0.02em', whiteSpace:'nowrap' }}>
               Peptide Compendium
             </div>
-            <div style={{ fontSize:9, fontFamily:'monospace', color:'#2d2d45', letterSpacing:'0.12em' }}>REFERENCE GUIDE</div>
+            <div style={{ fontSize:9, fontFamily:'monospace', color:'#4a4a6a', letterSpacing:'0.12em' }}>REFERENCE GUIDE</div>
           </div>
         </button>
 
         <div style={{ flex:1, position:'relative', maxWidth:400 }}>
-          <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'#2d2d45', fontSize:14 }}>⌕</span>
+          <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'#6a6a8a', fontSize:14 }}>⌕</span>
           <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search compounds..."
             style={{ width:'100%', boxSizing:'border-box', padding:'8px 30px 8px 32px',
-              background:'#0c0c1a', border:'1px solid #181828', borderRadius:6,
+              background:'#0f0f20', border:'1px solid #2a2a3e', borderRadius:6,
               color:'#c8c3b8', fontSize:12, fontFamily:'monospace', outline:'none' }} />
           {search && <button onClick={() => onSearch('')}
             style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
@@ -394,8 +394,8 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
         <button onClick={onToggleFavFilter}
           style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 14px', borderRadius:6,
             cursor:'pointer', flexShrink:0, background: favFilter ? '#1e1208' : 'transparent',
-            border:`1px solid ${favFilter ? '#f97316aa' : '#1e1e2e'}`,
-            color: favFilter ? '#f97316' : '#3a3a55', fontSize:11, fontFamily:'monospace' }}>
+            border:`1px solid ${favFilter ? '#f97316aa' : '#2a2a3e'}`,
+            color: favFilter ? '#f97316' : '#8a8598', fontSize:11, fontFamily:'monospace' }}>
           <span style={{ fontSize:14 }}>{favFilter ? '★' : '☆'}</span>
           <span>FAVORITES</span>
           {favCount > 0 && <span style={{ background:'#f9731622', color:'#f97316',
@@ -413,14 +413,14 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
           return (
             <button key={cat.id} onClick={() => setOpenCat(prev => prev === cat.id ? null : cat.id)}
               style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 16px',
-                background: isOpen ? `${cat.color_hex}18` : 'transparent',
+                background: isOpen ? `${cat.color_hex}22` : 'transparent',
                 border:'none', borderBottom:`2px solid ${isActive || isOpen ? cat.color_hex : 'transparent'}`,
-                color: isActive || isOpen ? cat.color_hex : isCondition ? '#9a8a9a' : '#6a6560',
+                color: isActive || isOpen ? cat.color_hex : isCondition ? '#c4a8c4' : '#a8a398',
                 cursor:'pointer', whiteSpace:'nowrap', fontSize:11, fontFamily:'monospace',
                 letterSpacing:'0.04em', transition:'all .15s', flexShrink:0 }}>
-              {isCondition && <span style={{ fontSize:9, opacity:0.6 }}>✦</span>}
+              {isCondition && <span style={{ fontSize:9, opacity:0.8 }}>✦</span>}
               <span>{cat.label}</span>
-              <span style={{ fontSize:9, opacity:0.5 }}>{isOpen ? '▲' : '▼'}</span>
+              <span style={{ fontSize:9, opacity:0.6 }}>{isOpen ? '▲' : '▼'}</span>
             </button>
           )
         })}

@@ -45,7 +45,7 @@ function parseItemText(text, peptideLookup) {
 
 function useTheme() {
   const [theme, setTheme] = useState(() =>
-    localStorage.getItem('peptide_theme') || 'dark'
+    localStorage.getItem('peptide_theme') || 'light'
   )
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -206,6 +206,14 @@ function DetailView({ peptide, category, isFav, onToggleFav, peptideLookup, onPe
 
       <div className="detail__content">
 
+        {/* Overview */}
+        {peptide.overview && (
+          <section>
+            <SecLabel color={col}>OVERVIEW</SecLabel>
+            <p className="detail__body">{peptide.overview}</p>
+          </section>
+        )}
+
         {/* Mechanism */}
         <section>
           <SecLabel color={col}>MECHANISM OF ACTION</SecLabel>
@@ -279,22 +287,42 @@ function DetailView({ peptide, category, isFav, onToggleFav, peptideLookup, onPe
 // ── Sidebar Auth ─────────────────────────────────────────────
 
 function SidebarAuth({ user, onSignOut }) {
+  const [mode, setMode]       = useState('signin')
   const [email, setEmail]     = useState('')
-  const [sent, setSent]       = useState(false)
+  const [pin, setPin]         = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
+  const [info, setInfo]       = useState(null)
 
-  const handleSend = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email.trim()) return
+    if (!email.trim() || pin.length < 4) return
     setLoading(true)
     setError(null)
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
-    })
-    setLoading(false)
-    if (err) { setError(err.message) } else { setSent(true) }
+    setInfo(null)
+
+    if (mode === 'signin') {
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: pin,
+      })
+      setLoading(false)
+      if (err) setError('Incorrect PIN or no account — try Create Account below')
+    } else {
+      const { error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: pin,
+      })
+      setLoading(false)
+      if (err) setError(err.message)
+      else setInfo('Account created! You are signed in.')
+    }
+  }
+
+  const switchMode = () => {
+    setMode(m => m === 'signin' ? 'create' : 'signin')
+    setError(null)
+    setInfo(null)
   }
 
   if (user) {
@@ -309,30 +337,34 @@ function SidebarAuth({ user, onSignOut }) {
     )
   }
 
-  if (sent) {
-    return (
-      <div className="sidebar__auth">
-        <div className="sidebar__auth-sent">✓ Check your email for the sign-in link</div>
-        <button className="sidebar__auth-resend" onClick={() => setSent(false)}>Try again</button>
-      </div>
-    )
-  }
-
   return (
     <div className="sidebar__auth">
-      <form className="sidebar__auth-form" onSubmit={handleSend}>
+      <form className="sidebar__auth-form" onSubmit={handleSubmit}>
         <input
           className="sidebar__auth-input"
           type="email"
-          placeholder="Email to save favorites..."
+          placeholder="Email"
           value={email}
           onChange={e => setEmail(e.target.value)}
         />
-        <button className="sidebar__auth-btn" type="submit" disabled={loading}>
-          {loading ? '...' : 'Send Magic Link'}
+        <input
+          className="sidebar__auth-input"
+          type="password"
+          inputMode="numeric"
+          placeholder="PIN (4-6 digits)"
+          maxLength={6}
+          value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+        />
+        <button className="sidebar__auth-btn" type="submit" disabled={loading || pin.length < 4}>
+          {loading ? '...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
+      <button className="sidebar__auth-toggle" onClick={switchMode}>
+        {mode === 'signin' ? 'New here? Create account' : 'Already have an account? Sign in'}
+      </button>
       {error && <div className="sidebar__auth-error">{error}</div>}
+      {info  && <div className="sidebar__auth-sent">{info}</div>}
     </div>
   )
 }
@@ -620,6 +652,170 @@ function PeptideModal({ peptide, category, favorites, onToggleFav, peptideLookup
   )
 }
 
+// ── Home Page ─────────────────────────────────────────────────
+
+const CAT_SUMMARIES = {
+  ghrp:      'Stimulate natural GH release from the pituitary. Foundation of most peptide protocols for lean mass, fat loss, recovery, and anti-aging.',
+  ghrh:      'Provide the hypothalamic signal that triggers pituitary GH production. Always paired with a GHRP for synergistic effect.',
+  repair:    'Accelerate healing of tendons, ligaments, gut lining, and wounds. BPC-157 and TB-500 are the gold standard injury recovery pairing.',
+  fatloss:   'Target fat metabolism through lipolysis stimulation, appetite suppression, and improved insulin sensitivity without sacrificing muscle.',
+  neuro:     'Enhance cognitive function, neuroprotection, and neuroplasticity. From nootropics to NAD+ — the tools of brain optimization.',
+  longevity: 'Address the root hallmarks of aging: telomere shortening, immune senescence, mitochondrial decline, and neuroendocrine dysfunction.',
+  sexual:    'Address sexual function through central brain pathways and hormonal cascades, not just vascular mechanisms like PDE5 inhibitors.',
+  cardio:    'Protect mitochondrial function in cardiomyocytes, modulate cardiovascular inflammation, and support systemic immune competence.',
+  skin:      'Drive collagen synthesis, reduce expression lines, and support skin structural integrity through cosmeceutical signal peptides.',
+  diabetes:  'Regulate glucose metabolism, stimulate insulin secretion, protect peripheral nerves, and drive body weight reduction.',
+  menopause: 'Support hormonal signaling, reduce vasomotor symptoms, restore libido, and address the neurological dimensions of female aging.',
+  stacks:    'Curated multi-peptide protocols combining compounds with complementary mechanisms for synergistic outcomes.',
+}
+
+const PRINCIPLES = [
+  { icon: '⏱', title: 'Fasted Administration', body: 'Most injectable peptides — especially GH secretagogues — require a fasted state (2+ hours post-meal). Insulin elevation directly blunts GH release and lipolytic activity.' },
+  { icon: '◎', title: 'Synergistic Stacking',  body: 'Peptides work best in complementary pairs. The canonical example: Mod GRF 1-29 + Ipamorelin co-injected produces 3–10x more GH than either alone due to dual receptor activation.' },
+  { icon: '◷', title: 'Cycle On and Off',       body: 'Most peptides require cycling to prevent receptor desensitization. GHRPs typically run 8–12 weeks on, 4 weeks off. Continuous use leads to diminishing returns.' },
+  { icon: '◑', title: 'Bedtime Timing',         body: 'Growth hormone peptides are most effective at bedtime — they amplify the natural GH pulse that occurs during slow-wave sleep, typically 1–2 hours after sleep onset.' },
+  { icon: '◈', title: 'Quality Sourcing',       body: 'Peptide purity varies dramatically across suppliers. Many compounds degrade rapidly if improperly stored or reconstituted. Lyophilized peptides should be refrigerated after reconstitution.' },
+  { icon: '✦', title: 'Medical Supervision',    body: 'This reference is educational. Many compounds are research chemicals not approved for human use. Blood work and physician oversight are strongly recommended for any peptide protocol.' },
+]
+
+function HomePage({ categories, onSelectPeptide, onSelectStack, onOpenSidebar, isMobile }) {
+  const peptideCats = categories.filter(c => c.id !== 'stacks')
+  const stacksCat   = categories.find(c => c.id === 'stacks')
+  const totalCompounds = peptideCats.reduce((a, c) => a + (c.peptides?.length || 0), 0)
+  const totalStacks    = stacksCat?.stacks?.length || 0
+
+  return (
+    <div className="home">
+
+      {/* Hero */}
+      <div className="home__hero">
+        {isMobile && (
+          <button className="hamburger home__hamburger" onClick={onOpenSidebar}>☰</button>
+        )}
+        <div className="home__hero-eyebrow">PEPTIDE REFERENCE GUIDE</div>
+        <h1 className="home__hero-title">The Peptide Compendium</h1>
+        <p className="home__hero-body">
+          Peptides are short chains of amino acids — the body's own signaling molecules — that direct biological
+          processes with remarkable specificity. Unlike traditional drugs that broadly block or stimulate receptors,
+          peptides mimic endogenous signals to promote healing, regulate hormones, sharpen cognition, and slow
+          age-related decline. This compendium covers {totalCompounds} compounds across {peptideCats.length} categories
+          with detailed mechanisms, dosing protocols, stacking guidance, and timing optimization.
+        </p>
+        <div className="home__hero-tags">
+          {[
+            { label: `${totalCompounds} Compounds`,  color: '#2dd4bf' },
+            { label: `${peptideCats.length} Categories`, color: '#60a5fa' },
+            { label: `${totalStacks} Stacks`,        color: '#f59e0b' },
+            { label: 'Stacking Guides',               color: '#fb923c' },
+            { label: 'Dosing Protocols',              color: '#a78bfa' },
+          ].map(({ label, color }) => (
+            <span key={label} className="home__hero-tag" style={{ '--tag-color': color }}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* What are Peptides */}
+      <div className="home__section">
+        <div className="home__section-label">WHAT ARE PEPTIDES</div>
+        <div className="home__two-col">
+          <p className="home__body-text">
+            Peptides are defined as chains of 2–50 amino acids. They are structurally distinct from proteins (which
+            are longer chains) and from individual amino acid supplements. The body produces thousands of endogenous
+            peptides — from insulin (51 amino acids) to the dipeptides that signal tissue repair after injury.
+            Synthetic peptides are designed to mimic or amplify these endogenous signals with targeted specificity.
+          </p>
+          <p className="home__body-text">
+            Most therapeutic peptides are administered subcutaneously using small insulin syringes, as peptide bonds
+            are broken down in the digestive system before absorption. Exceptions exist — BPC-157 and KPV have oral
+            bioavailability for GI-specific effects, and intranasal delivery (Semax, Selank) efficiently crosses the
+            blood-brain barrier. Regulatory status ranges from FDA-approved drugs to research chemicals.
+          </p>
+        </div>
+      </div>
+
+      {/* Browse by Category */}
+      <div className="home__section">
+        <div className="home__section-label">BROWSE BY CATEGORY</div>
+        <div className="home__cat-grid">
+          {categories.map(cat => {
+            const isStacks = cat.id === 'stacks'
+            const items    = isStacks ? (cat.stacks || []) : (cat.peptides || [])
+            const count    = items.length
+            const summary  = CAT_SUMMARIES[cat.id] || ''
+            return (
+              <div
+                key={cat.id}
+                className="home__cat-card"
+                style={{ '--accent': cat.color_hex }}
+                onClick={() => {
+                  if (isStacks) { if (items[0]) onSelectStack(items[0], cat) }
+                  else          { if (items[0]) onSelectPeptide(items[0], cat) }
+                }}
+              >
+                <div className="home__cat-card-top">
+                  <div className="home__cat-icon">◆</div>
+                  <div>
+                    <div className="home__cat-name">{cat.label}</div>
+                    <div className="home__cat-count">{count} {isStacks ? 'stacks' : 'compounds'}</div>
+                  </div>
+                </div>
+                <p className="home__cat-desc">{summary}</p>
+                <div className="home__cat-chips">
+                  {items.slice(0, 4).map(item => (
+                    <button
+                      key={item.id}
+                      className="home__cat-chip"
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (isStacks) onSelectStack(item, cat)
+                        else          onSelectPeptide(item, cat)
+                      }}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                  {items.length > 4 && (
+                    <span className="home__cat-more">+{items.length - 4} more</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Key Principles */}
+      <div className="home__section">
+        <div className="home__section-label">KEY PRINCIPLES</div>
+        <div className="home__principles-grid">
+          {PRINCIPLES.map(p => (
+            <div key={p.title} className="home__principle-card">
+              <div className="home__principle-header">
+                <span className="home__principle-icon">{p.icon}</span>
+                <span className="home__principle-title">{p.title}</span>
+              </div>
+              <p className="home__principle-body">{p.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="home__section home__section--last">
+        <div className="home__disclaimer">
+          This compendium is for educational and research purposes only. Dosing and stacking information reflects
+          published research literature and community protocols. It is NOT a prescription or medical recommendation.
+          Many compounds listed are research chemicals not approved for human use in all jurisdictions. Consult a
+          qualified healthcare provider before considering any peptide therapy.
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 // ── Loading Screen ────────────────────────────────────────────
 
 function LoadingScreen({ error }) {
@@ -842,27 +1038,37 @@ export default function App() {
       />
 
       <main className="main-content">
-        <BreadcrumbBar
-          peptide={selectedPeptide}
-          category={selectedCategory}
-          stack={selectedStack}
-          onOpenSidebar={() => setSidebarOpen(true)}
-        />
-        {selectedStack
-          ? <StacksDetailView
-              stack={selectedStack}
-              category={selectedCategory}
-              peptideLookup={peptideLookup}
-              onPeptideClick={handlePopupOpen}
+        {(selectedPeptide || selectedStack) && (
+          <BreadcrumbBar
+            peptide={selectedPeptide}
+            category={selectedCategory}
+            stack={selectedStack}
+            onOpenSidebar={() => setSidebarOpen(true)}
+          />
+        )}
+        {!selectedPeptide && !selectedStack
+          ? <HomePage
+              categories={orderedCategories}
+              onSelectPeptide={(peptide, cat) => handleSelect(`${cat.id}||${peptide.id}`, peptide, cat)}
+              onSelectStack={handleSelectStack}
+              onOpenSidebar={() => setSidebarOpen(true)}
+              isMobile={isMobile}
             />
-          : <DetailView
-              peptide={selectedPeptide}
-              category={selectedCategory}
-              isFav={!!favorites[selectedKey]}
-              onToggleFav={() => selectedKey && toggleFav(selectedKey)}
-              peptideLookup={peptideLookup}
-              onPeptideClick={handlePopupOpen}
-            />
+          : selectedStack
+            ? <StacksDetailView
+                stack={selectedStack}
+                category={selectedCategory}
+                peptideLookup={peptideLookup}
+                onPeptideClick={handlePopupOpen}
+              />
+            : <DetailView
+                peptide={selectedPeptide}
+                category={selectedCategory}
+                isFav={!!favorites[selectedKey]}
+                onToggleFav={() => selectedKey && toggleFav(selectedKey)}
+                peptideLookup={peptideLookup}
+                onPeptideClick={handlePopupOpen}
+              />
         }
       </main>
     </div>

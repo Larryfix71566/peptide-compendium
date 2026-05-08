@@ -287,7 +287,7 @@ function DetailView({ peptide, category, isFav, onToggleFav, peptideLookup, onPe
 // ── Sidebar Auth ─────────────────────────────────────────────
 
 function SidebarAuth({ user, userProfile, onSignOut }) {
-  const [mode, setMode]         = useState('signin')    // 'signin' | 'create'
+  const [mode, setMode]         = useState('signin')    // 'signin' | 'create' | 'forgot'
   const [authType, setAuthType] = useState('pin')       // 'pin' | 'password'
   const [email, setEmail]       = useState('')
   const [credential, setCred]   = useState('')
@@ -312,18 +312,30 @@ function SidebarAuth({ user, userProfile, onSignOut }) {
     setError(null)
   }
 
-  const switchMode = () => {
-    setMode(m => m === 'signin' ? 'create' : 'signin')
+  const switchMode = (next) => {
+    setMode(next)
     setError(null)
     setInfo(null)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!canSubmit) return
     setLoading(true)
     setError(null)
     setInfo(null)
+
+    if (mode === 'forgot') {
+      if (!email.trim()) { setLoading(false); return }
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin,
+      })
+      setLoading(false)
+      if (err) setError(err.message)
+      else setInfo('Recovery email sent — check your inbox.')
+      return
+    }
+
+    if (!canSubmit) { setLoading(false); return }
 
     if (mode === 'signin') {
       const { error: err } = await supabase.auth.signInWithPassword({
@@ -361,6 +373,32 @@ function SidebarAuth({ user, userProfile, onSignOut }) {
     )
   }
 
+  if (mode === 'forgot') {
+    return (
+      <div className="sidebar__auth">
+        <form className="sidebar__auth-form" onSubmit={handleSubmit}>
+          <input
+            className="sidebar__auth-input"
+            type="email"
+            placeholder="Your account email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            autoComplete="email"
+            autoFocus
+          />
+          <button className="sidebar__auth-btn" type="submit" disabled={!email.trim() || loading}>
+            {loading ? '...' : 'Send Recovery Email'}
+          </button>
+        </form>
+        <button className="sidebar__auth-toggle" onClick={() => switchMode('signin')}>
+          Back to sign in
+        </button>
+        {error && <div className="sidebar__auth-error">{error}</div>}
+        {info  && <div className="sidebar__auth-sent">{info}</div>}
+      </div>
+    )
+  }
+
   return (
     <div className="sidebar__auth">
       <form className="sidebar__auth-form" onSubmit={handleSubmit}>
@@ -394,15 +432,83 @@ function SidebarAuth({ user, userProfile, onSignOut }) {
         <button className="sidebar__auth-type-toggle" type="button" onClick={switchAuthType}>
           {isPIN ? 'Use a password instead' : 'Use a PIN instead'}
         </button>
+        {mode === 'signin' && (
+          <button className="sidebar__auth-type-toggle" type="button" onClick={() => switchMode('forgot')}>
+            Forgot password / PIN?
+          </button>
+        )}
         <button className="sidebar__auth-btn" type="submit" disabled={!canSubmit}>
           {loading ? '...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
-      <button className="sidebar__auth-toggle" onClick={switchMode}>
+      <button className="sidebar__auth-toggle" onClick={() => switchMode(mode === 'signin' ? 'create' : 'signin')}>
         {mode === 'signin' ? 'New here? Create account' : 'Already have an account? Sign in'}
       </button>
       {error && <div className="sidebar__auth-error">{error}</div>}
       {info  && <div className="sidebar__auth-sent">{info}</div>}
+    </div>
+  )
+}
+
+// ── Password Reset Modal ──────────────────────────────────────
+
+function PasswordResetModal({ onComplete }) {
+  const [authType, setAuthType] = useState('pin')
+  const [credential, setCred]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState(null)
+
+  const isPIN     = authType === 'pin'
+  const minLen    = isPIN ? 4 : 8
+  const credValid = credential.length >= minLen
+
+  const handleCredChange = (e) => {
+    const val = e.target.value
+    setCred(isPIN ? val.replace(/\D/g, '') : val)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!credValid) return
+    setLoading(true)
+    setError(null)
+    const { error: err } = await supabase.auth.updateUser({ password: credential })
+    setLoading(false)
+    if (err) setError(err.message)
+    else onComplete()
+  }
+
+  return (
+    <div className="peptide-modal-overlay">
+      <div className="peptide-modal" style={{ maxWidth: 360 }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 16, color: 'var(--text-bright)', fontFamily: 'var(--font-mono)' }}>
+          SET NEW PASSWORD
+        </h2>
+        <p style={{ margin: '0 0 16px', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          Choose a new PIN or password for your account.
+        </p>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input
+            className="sidebar__auth-input"
+            type="password"
+            inputMode={isPIN ? 'numeric' : 'text'}
+            placeholder={isPIN ? 'New PIN (4–6 digits)' : 'New password (8+ characters)'}
+            maxLength={isPIN ? 6 : undefined}
+            value={credential}
+            onChange={handleCredChange}
+            autoComplete="new-password"
+            autoFocus
+          />
+          <button className="sidebar__auth-type-toggle" type="button"
+            onClick={() => { setAuthType(t => t === 'pin' ? 'password' : 'pin'); setCred('') }}>
+            {isPIN ? 'Use a password instead' : 'Use a PIN instead'}
+          </button>
+          <button className="sidebar__auth-btn" type="submit" disabled={!credValid || loading}>
+            {loading ? '...' : 'Set New Password'}
+          </button>
+        </form>
+        {error && <div className="sidebar__auth-error" style={{ marginTop: 8 }}>{error}</div>}
+      </div>
     </div>
   )
 }
@@ -927,6 +1033,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser]               = useState(null)
   const [userProfile, setUserProfile] = useState(null)
+  const [recoveryMode, setRecoveryMode] = useState(false)
   const [popupPeptide, setPopupPeptide]   = useState(null)
   const [popupCategory, setPopupCategory] = useState(null)
   const [selectedStack, setSelectedStack] = useState(null)
@@ -997,6 +1104,10 @@ export default function App() {
       if (u) loadRemoteFavorites(u.id)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true)
+        return
+      }
       const u = session?.user ?? null
       setUser(u)
       if (u) loadRemoteFavorites(u.id)
@@ -1045,6 +1156,9 @@ export default function App() {
 
   return (
     <div className="app">
+      {recoveryMode && (
+        <PasswordResetModal onComplete={() => setRecoveryMode(false)} />
+      )}
       {popupPeptide && (
         <PeptideModal
           peptide={popupPeptide}

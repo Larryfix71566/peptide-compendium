@@ -166,6 +166,61 @@ function StackPanel({ title, isDo, items, peptideLookup, onPeptideClick }) {
   )
 }
 
+// ── Research Section ──────────────────────────────────────────
+
+const STUDY_TYPE_CONFIG = {
+  human:    { label: 'Human Clinical Studies', icon: '◉' },
+  animal:   { label: 'Animal / Preclinical',   icon: '◎' },
+  in_vitro: { label: 'In Vitro / Cell Studies', icon: '◌' },
+  review:   { label: 'Reviews & Meta-Analyses', icon: '◈' },
+}
+
+function ResearchSection({ research, color }) {
+  const grouped = {}
+  ;(research || []).forEach(r => {
+    if (!grouped[r.study_type]) grouped[r.study_type] = []
+    grouped[r.study_type].push(r)
+  })
+
+  const order   = ['human', 'animal', 'in_vitro', 'review']
+  const present = order.filter(t => grouped[t]?.length)
+  if (present.length === 0) return null
+
+  return (
+    <section>
+      <SecLabel color={color}>RESEARCH REFERENCES</SecLabel>
+      <div className="research-groups">
+        {present.map(type => (
+          <div key={type} className="research-group">
+            <div className="research-group__label">
+              <span className="research-group__icon" style={{ color }}>{STUDY_TYPE_CONFIG[type].icon}</span>
+              {STUDY_TYPE_CONFIG[type].label}
+              <span className="research-group__count">{grouped[type].length}</span>
+            </div>
+            <div className="research-group__items">
+              {grouped[type].map(r => (
+                <a
+                  key={r.id}
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="research-item"
+                >
+                  <span className="research-item__title">{r.title}</span>
+                  <span className="research-item__meta">
+                    {r.year && <span className="research-item__year">{r.year}</span>}
+                    <span className="research-item__link-icon" style={{ color }}>↗</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ── Detail View ───────────────────────────────────────────────
 
 function DetailView({ peptide, category, isFav, onToggleFav, peptideLookup, onPeptideClick }) {
@@ -270,6 +325,9 @@ function DetailView({ peptide, category, isFav, onToggleFav, peptideLookup, onPe
             <p className="detail__notes-text">{peptide.notes}</p>
           </div>
         </section>
+
+        {/* Research */}
+        <ResearchSection research={peptide.research} color={col} />
 
         {/* Disclaimer */}
         <div className="detail__disclaimer">

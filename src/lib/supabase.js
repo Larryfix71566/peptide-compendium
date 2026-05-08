@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 export async function fetchAll() {
-  const [catsRes, pepRes, benRes, fxRes, stackRes, popularStacksRes, stackMembersRes] = await Promise.all([
+  const [catsRes, pepRes, benRes, fxRes, stackRes, popularStacksRes, stackMembersRes, researchRes] = await Promise.all([
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('peptides').select('*').order('sort_order'),
     supabase.from('benefits').select('*').order('sort_order'),
@@ -14,6 +14,7 @@ export async function fetchAll() {
     supabase.from('stack_items').select('*').order('sort_order'),
     supabase.from('popular_stacks').select('*').order('sort_order'),
     supabase.from('stack_members').select('*').order('sort_order'),
+    supabase.from('peptide_research').select('*').order('year', { ascending: false }),
   ])
 
   if (catsRes.error) throw catsRes.error
@@ -24,6 +25,7 @@ export async function fetchAll() {
   const stackItems    = stackRes.data        || []
   const popularStacks = popularStacksRes.data || []
   const stackMembers  = stackMembersRes.data  || []
+  const researchData  = researchRes.data      || []
 
   const peptides = pepRes.data.map(p => ({
     ...p,
@@ -31,6 +33,7 @@ export async function fetchAll() {
     sideEffects: sideEffects.filter(s => s.peptide_id === p.id).map(s => s.effect),
     stackDos:    stackItems.filter(s => s.peptide_id === p.id && s.type === 'do'),
     stackDonts:  stackItems.filter(s => s.peptide_id === p.id && s.type === 'dont'),
+    research:    researchData.filter(r => r.peptide_id === p.id),
   }))
 
   const pepById = Object.fromEntries(pepRes.data.map(p => [p.id, p.name]))

@@ -175,7 +175,87 @@ const STUDY_TYPE_CONFIG = {
   review:   { label: 'Reviews & Meta-Analyses', icon: '◈' },
 }
 
+function extractPmid(url) {
+  const m = url.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d+)|ncbi\.nlm\.nih\.gov\/pubmed\/(\d+)/)
+  return m ? (m[1] || m[2]) : null
+}
+
+function ResearchModal({ study, color, onClose }) {
+  const [abstract, setAbstract] = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [fetchError, setFetchError] = useState(null)
+
+  const pmid = extractPmid(study.url)
+  const typeConfig = STUDY_TYPE_CONFIG[study.study_type] || { label: study.study_type, icon: '◌' }
+
+  useEffect(() => {
+    if (!pmid) return
+    setLoading(true)
+    setFetchError(null)
+    fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmid}&rettype=abstract&retmode=text`)
+      .then(r => r.ok ? r.text() : Promise.reject(r.status))
+      .then(text => { setAbstract(text.trim()); setLoading(false) })
+      .catch(() => { setFetchError('Could not load abstract.'); setLoading(false) })
+  }, [pmid])
+
+  useEffect(() => {
+    const handleKey = e => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  return (
+    <div
+      className="research-modal-overlay"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="research-modal" style={{ '--accent': color }}>
+        <button className="research-modal__close" onClick={onClose}>×</button>
+
+        <div className="research-modal__header">
+          <div className="research-modal__type-badge">
+            <span className="research-modal__type-icon">{typeConfig.icon}</span>
+            {typeConfig.label}
+          </div>
+          <h2 className="research-modal__title">{study.title}</h2>
+          {study.year && <div className="research-modal__year">{study.year}</div>}
+        </div>
+
+        <div className="research-modal__body">
+          {loading && (
+            <div className="research-modal__loading">Loading abstract…</div>
+          )}
+          {fetchError && (
+            <div className="research-modal__error">{fetchError}</div>
+          )}
+          {!pmid && !loading && (
+            <div className="research-modal__no-abstract">
+              Abstract preview is not available for this source. Use the button below to view the full study.
+            </div>
+          )}
+          {abstract && (
+            <pre className="research-modal__abstract">{abstract}</pre>
+          )}
+        </div>
+
+        <div className="research-modal__footer">
+          <a
+            href={study.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="research-modal__view-btn"
+          >
+            View Full Study ↗
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ResearchSection({ research, color }) {
+  const [selectedStudy, setSelectedStudy] = useState(null)
+
   const grouped = {}
   ;(research || []).forEach(r => {
     if (!grouped[r.study_type]) grouped[r.study_type] = []
@@ -199,11 +279,9 @@ function ResearchSection({ research, color }) {
             </div>
             <div className="research-group__items">
               {grouped[type].map(r => (
-                <a
+                <button
                   key={r.id}
-                  href={r.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => setSelectedStudy(r)}
                   className="research-item"
                 >
                   <span className="research-item__title">{r.title}</span>
@@ -211,12 +289,19 @@ function ResearchSection({ research, color }) {
                     {r.year && <span className="research-item__year">{r.year}</span>}
                     <span className="research-item__link-icon" style={{ color }}>↗</span>
                   </span>
-                </a>
+                </button>
               ))}
             </div>
           </div>
         ))}
       </div>
+      {selectedStudy && (
+        <ResearchModal
+          study={selectedStudy}
+          color={color}
+          onClose={() => setSelectedStudy(null)}
+        />
+      )}
     </section>
   )
 }

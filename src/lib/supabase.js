@@ -58,6 +58,27 @@ export async function fetchAll() {
   })
 }
 
+// ── Auth: user profiles ───────────────────────────────────────
+
+export async function fetchUserProfile(userId) {
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .single()
+  return data || null
+}
+
+export async function upsertUserProfile(userId, updates) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .upsert({ id: userId, ...updates, updated_at: new Date().toISOString() })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 // ── Auth: favorites ───────────────────────────────────────────
 
 export async function fetchFavorites(userId) {

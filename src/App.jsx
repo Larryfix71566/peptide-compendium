@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { fetchAll, fetchFavorites, toggleFavoriteRemote, supabase } from './lib/supabase.js'
+import { fetchAll, fetchFavorites, toggleFavoriteRemote, fetchUserProfile, upsertUserProfile, supabase } from './lib/supabase.js'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -286,37 +286,30 @@ function DetailView({ peptide, category, isFav, onToggleFav, peptideLookup, onPe
 
 // ── Sidebar Auth ─────────────────────────────────────────────
 
-function SidebarAuth({ user, onSignOut }) {
-  const [mode, setMode]       = useState('signin')
-  const [email, setEmail]     = useState('')
-  const [pin, setPin]         = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
-  const [info, setInfo]       = useState(null)
+function SidebarAuth({ user, userProfile, onSignOut }) {
+  const [mode, setMode]         = useState('signin')    // 'signin' | 'create'
+  const [authType, setAuthType] = useState('pin')       // 'pin' | 'password'
+  const [email, setEmail]       = useState('')
+  const [credential, setCred]   = useState('')
+  const [displayName, setName]  = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState(null)
+  const [info, setInfo]         = useState(null)
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!email.trim() || pin.length < 4) return
-    setLoading(true)
+  const isPIN     = authType === 'pin'
+  const minLen    = isPIN ? 4 : 8
+  const credValid = credential.length >= minLen
+  const canSubmit = email.trim() && credValid && !loading
+
+  const handleCredChange = (e) => {
+    const val = e.target.value
+    setCred(isPIN ? val.replace(/\D/g, '') : val)
+  }
+
+  const switchAuthType = () => {
+    setAuthType(t => t === 'pin' ? 'password' : 'pin')
+    setCred('')
     setError(null)
-    setInfo(null)
-
-    if (mode === 'signin') {
-      const { error: err } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: pin,
-      })
-      setLoading(false)
-      if (err) setError('Incorrect PIN or no account — try Create Account below')
-    } else {
-      const { error: err } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: pin,
-      })
-      setLoading(false)
-      if (err) setError(err.message)
-      else setInfo('Account created! You are signed in.')
-    }
   }
 
   const switchMode = () => {
@@ -325,12 +318,43 @@ function SidebarAuth({ user, onSignOut }) {
     setInfo(null)
   }
 
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!canSubmit) return
+    setLoading(true)
+    setError(null)
+    setInfo(null)
+
+    if (mode === 'signin') {
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: credential,
+      })
+      setLoading(false)
+      if (err) setError('Incorrect credentials or no account found')
+    } else {
+      const { data, error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: credential,
+      })
+      setLoading(false)
+      if (err) { setError(err.message); return }
+      if (displayName.trim() && data?.user) {
+        try { await upsertUserProfile(data.user.id, { display_name: displayName.trim() }) }
+        catch {}
+      }
+      setInfo('Account created! You are now signed in.')
+    }
+  }
+
   if (user) {
     return (
       <div className="sidebar__auth">
         <div className="sidebar__auth-user">
           <span className="sidebar__auth-dot">●</span>
-          <span className="sidebar__auth-email" title={user.email}>{user.email}</span>
+          <span className="sidebar__auth-email" title={user.email}>
+            {userProfile?.display_name || user.email}
+          </span>
           <button className="sidebar__auth-signout" onClick={onSignOut}>Sign out</button>
         </div>
       </div>
@@ -346,17 +370,31 @@ function SidebarAuth({ user, onSignOut }) {
           placeholder="Email"
           value={email}
           onChange={e => setEmail(e.target.value)}
+          autoComplete="email"
         />
+        {mode === 'create' && (
+          <input
+            className="sidebar__auth-input"
+            type="text"
+            placeholder="Display name (optional)"
+            value={displayName}
+            onChange={e => setName(e.target.value)}
+          />
+        )}
         <input
           className="sidebar__auth-input"
           type="password"
-          inputMode="numeric"
-          placeholder="PIN (4-6 digits)"
-          maxLength={6}
-          value={pin}
-          onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+          inputMode={isPIN ? 'numeric' : 'text'}
+          placeholder={isPIN ? 'PIN (4–6 digits)' : 'Password (8+ characters)'}
+          maxLength={isPIN ? 6 : undefined}
+          value={credential}
+          onChange={handleCredChange}
+          autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
         />
-        <button className="sidebar__auth-btn" type="submit" disabled={loading || pin.length < 4}>
+        <button className="sidebar__auth-type-toggle" type="button" onClick={switchAuthType}>
+          {isPIN ? 'Use a password instead' : 'Use a PIN instead'}
+        </button>
+        <button className="sidebar__auth-btn" type="submit" disabled={!canSubmit}>
           {loading ? '...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
@@ -373,7 +411,7 @@ function SidebarAuth({ user, onSignOut }) {
 
 function Sidebar({ categories, selectedKey, onSelect, favorites, onToggleFav,
                    favFilter, onToggleFavFilter, search, onSearch,
-                   theme, onTheme, sidebarClass, user, onSignOut, onReorder,
+                   theme, onTheme, sidebarClass, user, userProfile, onSignOut, onReorder,
                    selectedStack, onSelectStack }) {
   const [expanded, setExpanded] = useState({})
 
@@ -543,7 +581,7 @@ function Sidebar({ categories, selectedKey, onSelect, favorites, onToggleFav,
         </Droppable>
       </DragDropContext>
 
-      <SidebarAuth user={user} onSignOut={onSignOut} />
+      <SidebarAuth user={user} userProfile={userProfile} onSignOut={onSignOut} />
 
       <div className="sidebar__footer">
         RESEARCH REFERENCE ONLY — NOT MEDICAL ADVICE
@@ -888,6 +926,7 @@ export default function App() {
   const [search, setSearch]           = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser]               = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
   const [popupPeptide, setPopupPeptide]   = useState(null)
   const [popupCategory, setPopupCategory] = useState(null)
   const [selectedStack, setSelectedStack] = useState(null)
@@ -935,7 +974,11 @@ export default function App() {
   }, [])
 
   const loadRemoteFavorites = useCallback(async (userId) => {
-    const remote = await fetchFavorites(userId)
+    const [remote, profile] = await Promise.all([
+      fetchFavorites(userId),
+      fetchUserProfile(userId),
+    ])
+    setUserProfile(profile)
     const local  = JSON.parse(localStorage.getItem('peptide_favs') || '{}')
     const merged = { ...remote }
     for (const [k, v] of Object.entries(local)) {
@@ -964,6 +1007,7 @@ export default function App() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    setUserProfile(null)
   }
 
   const handlePopupOpen  = (peptide, category) => { setPopupPeptide(peptide); setPopupCategory(category) }
@@ -1031,6 +1075,7 @@ export default function App() {
         theme={theme}
         onTheme={setTheme}
         user={user}
+        userProfile={userProfile}
         onSignOut={handleSignOut}
         onReorder={handleReorder}
         selectedStack={selectedStack}

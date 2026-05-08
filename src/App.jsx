@@ -375,7 +375,7 @@ function Sidebar({ categories, selectedKey, onSelect, favorites, onToggleFav,
                    favFilter, onToggleFavFilter, search, onSearch,
                    theme, onTheme, sidebarClass, user, onSignOut, onReorder,
                    selectedStack, onSelectStack }) {
-  const [expanded, setExpanded] = useState({ ghrp: true })
+  const [expanded, setExpanded] = useState({})
 
   const totalCount = categories.reduce((a, c) => a + (c.peptides?.length || 0) + (c.stacks?.length || 0), 0)
   const favCount   = Object.values(favorites).filter(Boolean).length

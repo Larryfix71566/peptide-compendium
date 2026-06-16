@@ -7,6 +7,9 @@ import StacksPage from './components/StacksPage.jsx'
 import StackDetailView from './components/StackDetailView.jsx'
 import ReconstitutionPage from './components/ReconstitutionPage.jsx'
 import Dashboard from './components/Dashboard.jsx'
+import TutorialPage from './components/TutorialPage.jsx'
+import FirstRunOverlay from './components/FirstRunOverlay.jsx'
+import { TUTORIAL_VERSION } from './lib/tutorialContent.js'
 
 // ── Breakpoint ────────────────────────────────────────────────
 function useBreakpoint() {
@@ -227,7 +230,8 @@ function ConditionDetailView({ peptide, category, isFav, onToggleFav, stacks, on
 // ── Mobile Nav ────────────────────────────────────────────────
 function MobileNav({ categories, stacks, selectedPeptide, onSelectPeptide, onSelectStack,
                      favorites, search, onSearch, onHome, showHome, showStacks, onShowStacks,
-                     onShowRecon, onShowDashboard, showRecon, showDashboard }) {
+                     onShowRecon, onShowDashboard, showRecon, showDashboard,
+                     onShowTutorial, showTutorial }) {
   const [menuOpen,setMenuOpen]=useState(false)
   const [activeCat,setActiveCat]=useState(null)
   const standardCats=STANDARD_ORDER.map(id=>categories.find(c=>c.id===id)).filter(Boolean)
@@ -329,6 +333,15 @@ function MobileNav({ categories, stacks, selectedPeptide, onSelectPeptide, onSel
               </div>
               <span style={{ color:'#3a3a55',fontSize:11 }}>›</span>
             </button>
+            <button onClick={()=>{onShowTutorial();setMenuOpen(false)}}
+              style={{ width:'100%',display:'flex',alignItems:'center',gap:12,padding:'13px 16px',background:'rgba(251,191,36,0.04)',border:'none',borderBottom:'1px solid #0e0e18',cursor:'pointer',textAlign:'left' }}>
+              <div style={{ width:10,height:10,borderRadius:2,background:'#fbbf24',flexShrink:0 }}/>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13,fontFamily:'monospace',color:'#fbbf24' }}>? Tutorial</div>
+                <div style={{ fontSize:10,fontFamily:'monospace',color:'#3a3a55',marginTop:1 }}>How to use the app</div>
+              </div>
+              <span style={{ color:'#3a3a55',fontSize:11 }}>›</span>
+            </button>
           </div>
         </div>
       )}
@@ -410,7 +423,8 @@ function PeptideDropItem({ p, cat, selected, favorites, onClick }) {
 function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
                   favorites, favFilter, onToggleFavFilter, search, onSearch,
                   onHome, showHome, onShowStacks, showStacks, bp,
-                  onShowRecon, onShowDashboard, showRecon, showDashboard }) {
+                  onShowRecon, onShowDashboard, showRecon, showDashboard,
+                  onShowTutorial, showTutorial }) {
   const [openCat,setOpenCat]=useState(null)
   const navRef=useRef(null)
   const favCount=Object.keys(favorites).length
@@ -468,6 +482,10 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
         <button onClick={()=>{onShowRecon();setOpenCat(null);onSearch('')}}
           style={{ display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:6,background:showRecon?'#2dd4bf1f':'transparent',border:`1px solid ${showRecon?'#2dd4bf66':'#1e1e2e'}`,color:showRecon?'#2dd4bf':'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
           <span>🧪</span><span>Reconstitution</span>
+        </button>
+        <button onClick={()=>{onShowTutorial();setOpenCat(null);onSearch('')}}
+          style={{ display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:6,background:showTutorial?'#fbbf241f':'transparent',border:`1px solid ${showTutorial?'#fbbf2466':'#1e1e2e'}`,color:showTutorial?'#fbbf24':'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
+          <span>?</span><span>Tutorial</span>
         </button>
       </div>
       <div style={{ display:'flex',alignItems:'center',padding:'4px 16px 0',gap:8 }}>
@@ -609,6 +627,8 @@ export default function App() {
   const [showStacks,setShowStacks]=useState(false)
   const [showRecon,setShowRecon]=useState(false)
   const [showDashboard,setShowDashboard]=useState(false)
+  const [showTutorial,setShowTutorial]=useState(false)
+  const [showFirstRun,setShowFirstRun]=useState(false)
   const [favorites,setFavorites]=useState({})
   const [favFilter,setFavFilter]=useState(false)
   const [search,setSearch]=useState('')
@@ -619,6 +639,15 @@ export default function App() {
   const [doseLogs,setDoseLogs]=useState([])
 
   useEffect(()=>{if(!userKey)setShowProfileModal(true)},[])
+
+  useEffect(()=>{
+    const seen=localStorage.getItem('peptide_tutorial_seen')
+    if(seen!==String(TUTORIAL_VERSION)) setShowFirstRun(true)
+  },[])
+  const dismissFirstRun=()=>{
+    localStorage.setItem('peptide_tutorial_seen',String(TUTORIAL_VERSION))
+    setShowFirstRun(false)
+  }
 
   const reloadTracking=()=>{
     if(!userKey||userKey==='__guest__')return
@@ -652,19 +681,22 @@ export default function App() {
   }
   const handleSelectPeptide=(cat,peptide)=>{
     if(!peptide)return
-    setSelectedCategory(cat);setSelectedPeptide(peptide);setSelectedStack(null);setShowHome(false);setShowStacks(false);setShowRecon(false);setShowDashboard(false)
+    setSelectedCategory(cat);setSelectedPeptide(peptide);setSelectedStack(null);setShowHome(false);setShowStacks(false);setShowRecon(false);setShowDashboard(false);setShowTutorial(false)
   }
   const handleSelectStack=(stack)=>{
-    setSelectedStack(stack);setSelectedPeptide(null);setSelectedCategory(null);setShowHome(false);setShowStacks(false);setShowRecon(false);setShowDashboard(false)
+    setSelectedStack(stack);setSelectedPeptide(null);setSelectedCategory(null);setShowHome(false);setShowStacks(false);setShowRecon(false);setShowDashboard(false);setShowTutorial(false)
   }
   const handleShowStacks=()=>{
-    setShowStacks(true);setShowHome(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowDashboard(false)
+    setShowStacks(true);setShowHome(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowDashboard(false);setShowTutorial(false)
   }
   const handleShowRecon=()=>{
-    setShowRecon(true);setShowHome(false);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowDashboard(false)
+    setShowRecon(true);setShowHome(false);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowDashboard(false);setShowTutorial(false)
+  }
+  const handleShowTutorial=()=>{
+    setShowTutorial(true);setShowHome(false);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowDashboard(false)
   }
   const handleShowDashboard=()=>{
-    setShowDashboard(true);setShowHome(false);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false)
+    setShowDashboard(true);setShowHome(false);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowTutorial(false)
     reloadTracking()
   }
   const handleStartStackCycles=async(stack,peptides)=>{
@@ -681,7 +713,7 @@ export default function App() {
     alert(`${peptides.length} cycles created. Edit each in the Cycles tab to add vial concentration for unit conversion.`)
   }
   const handleHome=()=>{
-    setShowHome(true);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowDashboard(false)
+    setShowHome(true);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowDashboard(false);setShowTutorial(false)
   }
   const handleHomeCategoryClick=(catId,peptide)=>{
     const cat=categories.find(c=>c.id===catId);if(!cat)return
@@ -697,7 +729,7 @@ export default function App() {
   const isFav=selectedPeptide?!!favorites[selectedPeptide.id]:false
   const isMobile=bp==='mobile'
   const isTablet=bp==='tablet'
-  const view=showHome?'home':showDashboard?'dashboard':showRecon?'recon':showStacks?'stacks':selectedStack?'stackDetail':'peptide'
+  const view=showHome?'home':showTutorial?'tutorial':showDashboard?'dashboard':showRecon?'recon':showStacks?'stacks':selectedStack?'stackDetail':'peptide'
 
   if(loading||error)return <LoadingScreen error={error}/>
 
@@ -726,14 +758,17 @@ export default function App() {
   if(isMobile) return (
     <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'#07070e',color:'#ddd8cc',fontFamily:"Georgia,'Times New Roman',serif",overflow:'hidden' }}>
       {showProfileModal&&<ProfileModal onConfirm={handleProfileConfirm}/>}
+      {showFirstRun&&<FirstRunOverlay onClose={dismissFirstRun} onOpenTutorial={handleShowTutorial}/>}
       <MobileNav categories={categories} stacks={stacks} selectedPeptide={selectedPeptide}
         onSelectPeptide={handleSelectPeptide} onSelectStack={handleSelectStack}
         favorites={favorites} search={search} onSearch={setSearch}
         onHome={handleHome} showHome={showHome} showStacks={showStacks} onShowStacks={handleShowStacks}
         onShowRecon={handleShowRecon} onShowDashboard={handleShowDashboard}
-        showRecon={showRecon} showDashboard={showDashboard}/>
+        showRecon={showRecon} showDashboard={showDashboard}
+        onShowTutorial={handleShowTutorial} showTutorial={showTutorial}/>
       <div style={{ flex:1,overflow:'hidden',display:'flex',flexDirection:'column',paddingBottom:56 }}>
         {view==='home'&&<HomePage categories={categories} onSelectPeptide={handleHomeCategoryClick}/>}
+        {view==='tutorial'&&<TutorialPage bp={bp}/>}
         {view==='recon'&&<ReconstitutionPage/>}
         {view==='dashboard'&&<Dashboard userKey={userKey} allPeptides={allPeptides} cycles={cycles} vials={vials} doseLogs={doseLogs} reload={reloadTracking} bp={bp}/>}
         {view==='stacks'&&<StacksPage stacks={stacks} onSelectStack={handleSelectStack} allCategories={categories}/>}
@@ -764,15 +799,18 @@ export default function App() {
   return (
     <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'#07070e',color:'#ddd8cc',fontFamily:"Georgia,'Times New Roman',serif",overflow:'hidden' }}>
       {showProfileModal&&<ProfileModal onConfirm={handleProfileConfirm}/>}
+      {showFirstRun&&<FirstRunOverlay onClose={dismissFirstRun} onOpenTutorial={handleShowTutorial}/>}
       <TopNav categories={categories} activeCatId={selectedCategory?.id} selectedPeptide={selectedPeptide}
         onSelectPeptide={handleSelectPeptide} favorites={favorites} favFilter={favFilter}
         onToggleFavFilter={()=>setFavFilter(f=>!f)} search={search} onSearch={setSearch}
         onHome={handleHome} showHome={showHome} onShowStacks={handleShowStacks}
         showStacks={showStacks||!!selectedStack} bp={bp}
         onShowRecon={handleShowRecon} onShowDashboard={handleShowDashboard}
-        showRecon={showRecon} showDashboard={showDashboard}/>
+        showRecon={showRecon} showDashboard={showDashboard}
+        onShowTutorial={handleShowTutorial} showTutorial={showTutorial}/>
       <div style={{ flex:1,overflow:'hidden',display:'flex',flexDirection:'column' }}>
         {view==='home'&&<HomePage categories={categories} onSelectPeptide={handleHomeCategoryClick}/>}
+        {view==='tutorial'&&<TutorialPage bp={bp}/>}
         {view==='recon'&&<ReconstitutionPage/>}
         {view==='dashboard'&&<Dashboard userKey={userKey} allPeptides={allPeptides} cycles={cycles} vials={vials} doseLogs={doseLogs} reload={reloadTracking} bp={bp}/>}
         {view==='stacks'&&<StacksPage stacks={stacks} onSelectStack={handleSelectStack} allCategories={categories}/>}

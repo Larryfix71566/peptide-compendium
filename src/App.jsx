@@ -458,6 +458,21 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
           {favCount>0&&<span style={{ background:'#f9731622',color:'#f97316',borderRadius:10,padding:'0 5px',fontSize:10 }}>{favCount}</span>}
         </button>
       </div>
+      {/* Tools row — interactive tools, separated above reference categories */}
+      <div style={{ display:'flex',alignItems:'center',gap:8,padding:'7px 16px',background:'#0a0a12',borderBottom:'1px solid #15151f' }}>
+        <span style={{ fontSize:8,fontFamily:'monospace',color:'#3a3a55',letterSpacing:'0.16em',flexShrink:0 }}>TOOLS</span>
+        <button onClick={()=>{onShowDashboard();setOpenCat(null);onSearch('')}}
+          style={{ display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:6,background:showDashboard?'#60a5fa1f':'transparent',border:`1px solid ${showDashboard?'#60a5fa66':'#1e1e2e'}`,color:showDashboard?'#60a5fa':'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
+          <span>◈</span><span>Dashboard</span>
+        </button>
+        <button onClick={()=>{onShowRecon();setOpenCat(null);onSearch('')}}
+          style={{ display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:6,background:showRecon?'#2dd4bf1f':'transparent',border:`1px solid ${showRecon?'#2dd4bf66':'#1e1e2e'}`,color:showRecon?'#2dd4bf':'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
+          <span>🧪</span><span>Reconstitution</span>
+        </button>
+      </div>
+      <div style={{ display:'flex',alignItems:'center',padding:'4px 16px 0',gap:8 }}>
+        <span style={{ fontSize:8,fontFamily:'monospace',color:'#3a3a55',letterSpacing:'0.16em',flexShrink:0 }}>BROWSE</span>
+      </div>
       <div style={{ display:'flex',alignItems:'stretch',overflowX:'auto',padding:'0 12px',scrollbarWidth:'none',gap:1 }}>
         {standardCats.map(cat=>{
           const isOpen=openCat===cat.id;const isActive=activeCatId===cat.id&&!showHome&&!showStacks
@@ -476,15 +491,6 @@ function TopNav({ categories, activeCatId, selectedPeptide, onSelectPeptide,
         <button onClick={()=>{onShowStacks();setOpenCat(null);onSearch('')}}
           style={{ display:'flex',alignItems:'center',gap:6,padding:isTablet?'9px 11px':'10px 14px',background:showStacks?`${STACK_COLOR}22`:'transparent',border:'none',borderBottom:`2px solid ${showStacks?STACK_COLOR:'transparent'}`,color:showStacks?STACK_COLOR:'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
           <span>⚗</span><span>Stacks & Blends</span>
-        </button>
-        <div style={{ width:1,background:'#1e1e2e',margin:'8px 6px',flexShrink:0 }}/>
-        <button onClick={()=>{onShowRecon();setOpenCat(null);onSearch('')}}
-          style={{ display:'flex',alignItems:'center',gap:6,padding:isTablet?'9px 11px':'10px 14px',background:showRecon?'#2dd4bf22':'transparent',border:'none',borderBottom:`2px solid ${showRecon?'#2dd4bf':'transparent'}`,color:showRecon?'#2dd4bf':'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
-          <span>🧪</span><span>Reconstitution</span>
-        </button>
-        <button onClick={()=>{onShowDashboard();setOpenCat(null);onSearch('')}}
-          style={{ display:'flex',alignItems:'center',gap:6,padding:isTablet?'9px 11px':'10px 14px',background:showDashboard?'#60a5fa22':'transparent',border:'none',borderBottom:`2px solid ${showDashboard?'#60a5fa':'transparent'}`,color:showDashboard?'#60a5fa':'#a8a398',cursor:'pointer',whiteSpace:'nowrap',fontSize:isTablet?10:11,fontFamily:'monospace',transition:'all .15s',flexShrink:0 }}>
-          <span>◈</span><span>Dashboard</span>
         </button>
       </div>
       {search&&(()=>{

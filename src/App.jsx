@@ -667,6 +667,19 @@ export default function App() {
     setShowDashboard(true);setShowHome(false);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false)
     reloadTracking()
   }
+  const handleStartStackCycles=async(stack,peptides)=>{
+    if(!userKey||userKey==='__guest__'){alert('Set up a profile first to track cycles.');return}
+    if(!confirm(`Create ${peptides.length} cycles from "${stack.name}"? You can set vial concentration on each afterward.`))return
+    const { saveCycle }=await import('./lib/supabase.js')
+    const today=new Date().toISOString().slice(0,10)
+    for(const p of peptides){
+      await saveCycle({ user_key:userKey, peptide_id:p.peptide_id, start_date:today, planned_days:56,
+        dose_amount:p.dosing||'', frequency:p.frequency||'', route:p.route||'Subcutaneous', syringe_type:'U-100' })
+    }
+    reloadTracking()
+    handleShowDashboard()
+    alert(`${peptides.length} cycles created. Edit each in the Cycles tab to add vial concentration for unit conversion.`)
+  }
   const handleHome=()=>{
     setShowHome(true);setShowStacks(false);setSelectedPeptide(null);setSelectedCategory(null);setSelectedStack(null);setShowRecon(false);setShowDashboard(false)
   }
@@ -730,7 +743,7 @@ export default function App() {
               <button onClick={handleShowStacks} style={{ background:'none',border:'none',cursor:'pointer',color:'#a78bfa',fontSize:16 }}>‹</button>
               <span style={{ fontSize:10,fontFamily:'monospace',color:'#a78bfa' }}>{selectedStack.name}</span>
             </div>
-            <StackDetailView stack={selectedStack} peptideMap={peptideMap} onSelectPeptide={handleSelectPeptide} allCategories={categories}/>
+            <StackDetailView stack={selectedStack} peptideMap={peptideMap} onSelectPeptide={handleSelectPeptide} allCategories={categories} onStartCycles={handleStartStackCycles}/>
           </div>
         )}
         {view==='peptide'&&(
@@ -773,7 +786,7 @@ export default function App() {
                   favorites={favorites} favFilter={favFilter}/>
               )}
               <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden' }}>
-                {view==='stackDetail'&&<StackDetailView stack={selectedStack} peptideMap={peptideMap} onSelectPeptide={handleSelectPeptide} allCategories={categories}/>}
+                {view==='stackDetail'&&<StackDetailView stack={selectedStack} peptideMap={peptideMap} onSelectPeptide={handleSelectPeptide} allCategories={categories} onStartCycles={handleStartStackCycles}/>}
                 {view==='peptide'&&(selectedPeptide
                   ?<DetailView peptide={selectedPeptide} category={selectedCategory} isFav={isFav} onToggleFav={()=>toggleFav(selectedPeptide,selectedCategory)} stacks={stacks} onSelectStack={handleSelectStack} bp={bp}/>
                   :<div style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16,color:'#1e1e2e' }}>

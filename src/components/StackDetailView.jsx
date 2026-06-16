@@ -4,7 +4,7 @@ function SecLabel({ color, children }) {
   </div>
 }
 
-export default function StackDetailView({ stack, peptideMap, onSelectPeptide, allCategories }) {
+export default function StackDetailView({ stack, peptideMap, onSelectPeptide, allCategories, onStartCycles }) {
   const col = stack.color_hex
   const peptides = stack.peptideRoles.map(r => ({ ...(peptideMap[r.peptide_id]||{}), role:r.role, peptide_id:r.peptide_id })).filter(p=>p.id)
   const catForPeptide = {}
@@ -26,6 +26,12 @@ export default function StackDetailView({ stack, peptideMap, onSelectPeptide, al
             </span>
           ))}
         </div>
+        {onStartCycles && (
+          <button onClick={() => onStartCycles(stack, peptides)}
+            style={{ marginTop:16, display:'inline-flex', alignItems:'center', gap:8, padding:'10px 18px', background:'#60a5fa1a', border:'1px solid #60a5fa55', borderRadius:8, color:'#60a5fa', fontSize:13, fontFamily:'monospace', cursor:'pointer' }}>
+            ◈ Start all as cycles ({peptides.length})
+          </button>
+        )}
       </div>
       <div style={{ height:1, background:`linear-gradient(90deg,${col}44 0%,transparent 80%)`, margin:'20px 0 28px' }} />
       <div style={{ display:'flex', flexDirection:'column', gap:28 }}>

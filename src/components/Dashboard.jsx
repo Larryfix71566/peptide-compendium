@@ -7,6 +7,7 @@ import {
 import {
   cycleDay, cycleProgress, daysRemaining, isOnDay, vialStatus, vialAgeDays,
   expectedDosesToDate, fmtDate, fmtDateTime, todayISO,
+  doseDisplayUnits, parseDoseMcg, SYRINGE_UNITS,
 } from '../lib/cycleHelpers.js'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell,
@@ -74,9 +75,11 @@ function TodayTab({ userKey, cycles, vials, doseLogs, allPeptides, reload, isMob
   })
 
   async function logDose(cycle) {
+    const conv = doseDisplayUnits(cycle.dose_amount, cycle.mg_strength, cycle.bac_water_ml, SYRINGE_UNITS[cycle.syringe_type] || 100)
     await saveDoseLog({
       user_key:userKey, cycle_id:cycle.id, peptide_id:cycle.peptide_id,
       dose_amount:cycle.dose_amount, logged_at:new Date().toISOString(),
+      units: conv ? Number(conv.units.toFixed(1)) : null,
     })
     reload()
   }
@@ -91,11 +94,19 @@ function TodayTab({ userKey, cycles, vials, doseLogs, allPeptides, reload, isMob
         <Stat label="VIAL ALERTS" value={expiringVials.length} accent={expiringVials.length?'#f87171':'#34d399'}/>
       </div>
 
+      {cycles.length > 0 && (
+        <InfoBox accent={ACCENT}>
+          <b style={{ color:'#a8c8e8' }}>How to log:</b> Tap the checkbox next to each dose when you take it. The dose is timestamped and, if you set a vial concentration on the cycle, the syringe units are calculated automatically. Tap again to undo.
+        </InfoBox>
+      )}
+
       <Section title="TODAY'S DOSES" accent={ACCENT}>
         {dueToday.length === 0
-          ? <Empty>No doses scheduled today. {cycles.length===0 && 'Start a cycle in the Cycles tab.'}</Empty>
+          ? <Empty>No doses scheduled today. {cycles.length===0 && 'Start a cycle in the Cycles tab to begin logging.'}</Empty>
           : <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {dueToday.map(({cycle, logged, logId}) => (
+              {dueToday.map(({cycle, logged, logId}) => {
+                const conv = doseDisplayUnits(cycle.dose_amount, cycle.mg_strength, cycle.bac_water_ml, SYRINGE_UNITS[cycle.syringe_type] || 100)
+                return (
                 <div key={cycle.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'#0c0c18', border:`1px solid ${logged?'#34d39933':'#1a1a28'}`, borderRadius:8 }}>
                   <button onClick={()=> logged ? undoDose(logId) : logDose(cycle)}
                     style={{ width:26, height:26, borderRadius:6, flexShrink:0, cursor:'pointer',
@@ -109,9 +120,15 @@ function TodayTab({ userKey, cycles, vials, doseLogs, allPeptides, reload, isMob
                       {cycle.dose_amount} · {cycle.frequency} · day {cycleDay(cycle)}{cycle.planned_days?`/${cycle.planned_days}`:''}
                     </div>
                   </div>
-                  {logged && <span style={{ fontSize:10, fontFamily:'monospace', color:'#34d399' }}>DONE</span>}
+                  {conv
+                    ? <span style={{ fontSize:12, fontFamily:'monospace', color:'#2dd4bf', background:'#2dd4bf12', padding:'4px 10px', borderRadius:5, flexShrink:0 }}>
+                        {conv.units.toFixed(1)} units<span style={{ color:'#5a5550', fontSize:9 }}> {cycle.syringe_type||'U-100'}</span>
+                      </span>
+                    : <span style={{ fontSize:9, fontFamily:'monospace', color:'#5a5550', flexShrink:0 }}>add vial<br/>for units</span>
+                  }
+                  {logged && <span style={{ fontSize:10, fontFamily:'monospace', color:'#34d399', flexShrink:0 }}>DONE</span>}
                 </div>
-              ))}
+              )})}
             </div>
         }
       </Section>
@@ -315,6 +332,11 @@ function CyclesTab({ userKey, cycles, vials, allPeptides, reload, isMobile }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {cycles.length === 0 && (
+        <InfoBox accent={ACCENT}>
+          <b style={{ color:'#a8c8e8' }}>Getting started:</b> A cycle tracks one peptide's protocol over time. Tap <b>+ Start New Cycle</b>, pick a peptide (dose/frequency auto-fill from its data), and enter your vial strength + BAC water so doses convert to syringe units. Once saved, the cycle's scheduled doses appear in the <b>Today</b> tab where you check them off to log. For a stack, use “Start all as cycles” on any stack page to create one cycle per peptide at once.
+        </InfoBox>
+      )}
       <button onClick={()=>{ setEditing(null); setShowForm(true) }}
         style={{ alignSelf:'flex-start', padding:'10px 18px', background:`${ACCENT}1a`, border:`1px solid ${ACCENT}55`, borderRadius:8, color:ACCENT, fontSize:13, fontFamily:'monospace', cursor:'pointer' }}>
         + Start New Cycle
@@ -341,6 +363,7 @@ function CyclesTab({ userKey, cycles, vials, allPeptides, reload, isMobile }) {
 }
 
 function CycleRow({ c, allPeptides, dim, onEdit, onPause, onResume, onComplete, onDelete }) {
+  const conv = doseDisplayUnits(c.dose_amount, c.mg_strength, c.bac_water_ml, SYRINGE_UNITS[c.syringe_type] || 100)
   return (
     <div style={{ padding:'14px 16px', background:'#0c0c18', border:'1px solid #1a1a28', borderRadius:8, opacity: dim?0.6:1 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, flexWrap:'wrap' }}>
@@ -353,6 +376,12 @@ function CycleRow({ c, allPeptides, dim, onEdit, onPause, onResume, onComplete, 
             Started {fmtDate(c.start_date)} · day {cycleDay(c)}{c.planned_days?` of ${c.planned_days}`:''}
             {c.on_days?` · ${c.on_days}on/${c.off_days}off`:''}
           </div>
+          {conv
+            ? <div style={{ fontSize:11, color:'#2dd4bf', fontFamily:'monospace', marginTop:4 }}>
+                💉 {conv.units.toFixed(1)} units on {c.syringe_type||'U-100'} · {c.mg_strength}mg/{c.bac_water_ml}mL
+              </div>
+            : <div style={{ fontSize:10, color:'#4a4a6a', fontFamily:'monospace', marginTop:4 }}>No vial set — edit to add concentration for unit conversion</div>
+          }
         </div>
         <span style={{ fontSize:9, fontFamily:'monospace', padding:'2px 8px', borderRadius:4,
           background: c.status==='active'?'#34d39922':c.status==='paused'?'#fbbf2422':'#3a3a5522',
@@ -378,8 +407,10 @@ function CycleForm({ cycle, allPeptides, vials, onSave, onCancel }) {
   const [route, setRoute] = useState(cycle?.route || 'Subcutaneous')
   const [onDays, setOnDays] = useState(cycle?.on_days || '')
   const [offDays, setOffDays] = useState(cycle?.off_days || '')
+  const [mgStrength, setMgStrength] = useState(cycle?.mg_strength || '')
+  const [bacWater, setBacWater] = useState(cycle?.bac_water_ml || '')
+  const [syringeType, setSyringeType] = useState(cycle?.syringe_type || 'U-100')
 
-  // Auto-fill dose/freq/route from peptide defaults
   function onPeptideChange(id) {
     setPeptideId(id)
     const p = allPeptides.find(x=>x.id===id)
@@ -392,6 +423,8 @@ function CycleForm({ cycle, allPeptides, vials, onSave, onCancel }) {
 
   const inp = { width:'100%', boxSizing:'border-box', padding:'9px 12px', background:'#0f0f20', border:'1px solid #2a2a3e', borderRadius:6, color:'#ddd8cc', fontSize:13, fontFamily:'monospace', outline:'none' }
   const lbl = { display:'block', fontSize:9, fontFamily:'monospace', color:'#6a6a8a', letterSpacing:'0.1em', marginBottom:5 }
+
+  const preview = doseDisplayUnits(doseAmount, parseFloat(mgStrength), parseFloat(bacWater), SYRINGE_UNITS[syringeType])
 
   return (
     <div style={{ padding:'20px', background:'#0a0a14', border:`1px solid ${ACCENT}33`, borderRadius:10 }}>
@@ -413,8 +446,31 @@ function CycleForm({ cycle, allPeptides, vials, onSave, onCancel }) {
           <div style={{ flex:1 }}><label style={lbl}>OFF DAYS</label><input type="number" value={offDays} onChange={e=>setOffDays(e.target.value)} placeholder="opt." style={inp}/></div>
         </div>
       </div>
+
+      {/* Vial / concentration section — enables unit conversion */}
+      <div style={{ marginTop:18, padding:'14px', background:'#0c0c18', border:'1px solid #1a1a28', borderRadius:8 }}>
+        <div style={{ fontSize:9, fontFamily:'monospace', color:'#2dd4bf', letterSpacing:'0.12em', marginBottom:4 }}>VIAL / CONCENTRATION</div>
+        <div style={{ fontSize:10, fontFamily:'monospace', color:'#5a5550', marginBottom:12, lineHeight:1.5 }}>
+          Enter your vial strength and BAC water to auto-calculate syringe units for each logged dose.
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
+          <div><label style={lbl}>VIAL MG</label><input type="number" value={mgStrength} onChange={e=>setMgStrength(e.target.value)} placeholder="5" style={inp}/></div>
+          <div><label style={lbl}>BAC WATER (ML)</label><input type="number" value={bacWater} onChange={e=>setBacWater(e.target.value)} placeholder="2" style={inp}/></div>
+          <div><label style={lbl}>SYRINGE</label>
+            <select value={syringeType} onChange={e=>setSyringeType(e.target.value)} style={{...inp, cursor:'pointer'}}>
+              <option value="U-100">U-100</option><option value="U-50">U-50</option><option value="U-40">U-40</option>
+            </select>
+          </div>
+        </div>
+        {preview && (
+          <div style={{ marginTop:12, padding:'10px 14px', background:'#2dd4bf12', border:'1px solid #2dd4bf33', borderRadius:6, fontSize:13, fontFamily:'monospace', color:'#2dd4bf' }}>
+            → Draw <b>{preview.units.toFixed(1)} units</b> on a {syringeType} syringe ({preview.ml.toFixed(3)} mL per {doseAmount})
+          </div>
+        )}
+      </div>
+
       <div style={{ display:'flex', gap:10, marginTop:18 }}>
-        <button onClick={()=>onSave({ peptide_id:peptideId, start_date:startDate, planned_days:plannedDays||null, dose_amount:doseAmount, frequency, route, on_days:onDays?parseInt(onDays):null, off_days:offDays?parseInt(offDays):null })}
+        <button onClick={()=>onSave({ peptide_id:peptideId, start_date:startDate, planned_days:plannedDays||null, dose_amount:doseAmount, frequency, route, on_days:onDays?parseInt(onDays):null, off_days:offDays?parseInt(offDays):null, mg_strength:mgStrength?parseFloat(mgStrength):null, bac_water_ml:bacWater?parseFloat(bacWater):null, syringe_type:syringeType })}
           style={{ padding:'9px 20px', background:`${ACCENT}22`, border:`1px solid ${ACCENT}`, borderRadius:6, color:ACCENT, fontSize:13, fontFamily:'monospace', cursor:'pointer' }}>Save</button>
         <button onClick={onCancel} style={{ padding:'9px 20px', background:'transparent', border:'1px solid #2a2a3e', borderRadius:6, color:'#8a8598', fontSize:13, fontFamily:'monospace', cursor:'pointer' }}>Cancel</button>
       </div>
@@ -439,6 +495,13 @@ function Section({ title, accent, children }) {
       </div>
       {children}
     </section>
+  )
+}
+function InfoBox({ accent, children }) {
+  return (
+    <div style={{ padding:'13px 16px', background:`${accent}0d`, border:`1px solid ${accent}33`, borderLeft:`3px solid ${accent}`, borderRadius:'0 8px 8px 0', fontSize:12, fontFamily:'monospace', color:'#8a9aa8', lineHeight:1.7 }}>
+      {children}
+    </div>
   )
 }
 function Empty({ children }) {

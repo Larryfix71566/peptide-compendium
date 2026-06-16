@@ -76,3 +76,29 @@ export function fmtDateTime(d) {
 export function todayISO() {
   return new Date().toISOString().slice(0,10)
 }
+
+// Parse a dose string like "250 mcg", "2.5mg", "1 mg" into mcg (number)
+export function parseDoseMcg(doseStr) {
+  if (!doseStr) return null
+  const s = String(doseStr).toLowerCase().replace(/,/g,'')
+  const m = s.match(/([\d.]+)\s*(mcg|ug|mg|iu)?/)
+  if (!m) return null
+  const val = parseFloat(m[1])
+  if (isNaN(val)) return null
+  const unit = m[2] || 'mcg'
+  if (unit === 'mg') return val * 1000
+  if (unit === 'iu') return null // IU can't convert without peptide-specific factor
+  return val // mcg or ug
+}
+
+// Full conversion: dose string + vial -> { units, ml, conc } or null
+export function doseDisplayUnits(doseStr, mgStrength, bacWaterMl, syringeUnits = 100) {
+  const mcg = parseDoseMcg(doseStr)
+  if (mcg == null || !mgStrength || !bacWaterMl) return null
+  const conc = concMcgPerMl(mgStrength, bacWaterMl)   // mcg/mL
+  if (!conc) return null
+  const ml = mcg / conc
+  return { units: ml * syringeUnits, ml, conc, mcg }
+}
+
+export const SYRINGE_UNITS = { 'U-100': 100, 'U-50': 50, 'U-40': 40 }

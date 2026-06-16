@@ -94,3 +94,62 @@ export async function removeFavorite(userKey, peptideId) {
     .delete().eq('user_key', userKey).eq('peptide_id', peptideId)
   if (error) console.error('removeFavorite error:', error)
 }
+
+// ── Vials ─────────────────────────────────────────────────────
+export async function fetchVials(userKey) {
+  if (!userKey) return []
+  const { data, error } = await supabase.from('vials').select('*').eq('user_key', userKey).order('created_at', { ascending: false })
+  if (error) { console.error('fetchVials:', error); return [] }
+  return data || []
+}
+export async function saveVial(vial) {
+  const { data, error } = await supabase.from('vials').insert(vial).select().single()
+  if (error) { console.error('saveVial:', error); return null }
+  return data
+}
+export async function updateVial(id, patch) {
+  const { error } = await supabase.from('vials').update(patch).eq('id', id)
+  if (error) console.error('updateVial:', error)
+}
+export async function deleteVial(id) {
+  const { error } = await supabase.from('vials').delete().eq('id', id)
+  if (error) console.error('deleteVial:', error)
+}
+
+// ── Cycles ────────────────────────────────────────────────────
+export async function fetchCycles(userKey) {
+  if (!userKey) return []
+  const { data, error } = await supabase.from('user_cycles').select('*').eq('user_key', userKey).order('start_date', { ascending: false })
+  if (error) { console.error('fetchCycles:', error); return [] }
+  return data || []
+}
+export async function saveCycle(cycle) {
+  const { data, error } = await supabase.from('user_cycles').insert(cycle).select().single()
+  if (error) { console.error('saveCycle:', error); return null }
+  return data
+}
+export async function updateCycle(id, patch) {
+  const { error } = await supabase.from('user_cycles').update(patch).eq('id', id)
+  if (error) console.error('updateCycle:', error)
+}
+export async function deleteCycle(id) {
+  const { error } = await supabase.from('user_cycles').delete().eq('id', id)
+  if (error) console.error('deleteCycle:', error)
+}
+
+// ── Dose logs ─────────────────────────────────────────────────
+export async function fetchDoseLogs(userKey) {
+  if (!userKey) return []
+  const { data, error } = await supabase.from('dose_logs').select('*').eq('user_key', userKey).order('logged_at', { ascending: false })
+  if (error) { console.error('fetchDoseLogs:', error); return [] }
+  return data || []
+}
+export async function saveDoseLog(log) {
+  const { data, error } = await supabase.from('dose_logs').insert(log).select().single()
+  if (error) { console.error('saveDoseLog:', error); return null }
+  return data
+}
+export async function deleteDoseLog(id) {
+  const { error } = await supabase.from('dose_logs').delete().eq('id', id)
+  if (error) console.error('deleteDoseLog:', error)
+}
